@@ -1,2 +1,4 @@
 venv/
-secret.txt
+secret.properties
+discord.log
+data.json
