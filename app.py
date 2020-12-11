@@ -568,6 +568,7 @@ async def reminder():
 # TODO factoriser / réorganiser
 # TODO Plusieurs phrases pour un même défis avec l’analyse (liste de description)
 # TODO Notation d’un défis pour prévenir de ceux trop nuls
+# TODO bdd multi guild/channel
 # 🚧
 
 reminder.start()
