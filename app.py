@@ -25,6 +25,8 @@ BLURPLE = 0x4e5d94
 MAX_PER_PAGE = 9
 DATE_FORMAT = '%d/%m/%Y'
 REFUSE_POINT = -2
+SUCCESS_POINT = 1
+FAILURE_POINT = 0
 
 # Tiny db
 db = TinyDB(DB_FILE)
@@ -53,7 +55,7 @@ async def inscription(ctx):
     """
     👤 Commencer à s'épanouir.
 
-        usage: [:]inscription|start
+        usage: [;]inscription|start
     """
     user_id = ctx.author.id
 
@@ -70,7 +72,7 @@ async def inscription(ctx):
         'last_challenges': list(),
         'score': 0
     })
-    await ctx.send(f"<@{user_id}> gooooooooooooooooo.")
+    await ctx.send(f"<@{user_id}> gooooooooooooooooo.\nAjoute des défis avec `{DISCORD_PREFIX}ajout ou récupère en un avec `{DISCORD_PREFIX}defi`.\n{DISCORD_PREFIX} pour plus d'aide.")
 
 
 @bot.command(aliases=['stop'])
@@ -78,7 +80,7 @@ async def desinscription(ctx):
     """
     👤 Mettre fin à son épanouissement.
 
-        usage: [:]desinscription|stop
+        usage: [;]desinscription|stop
     """
     user_id = ctx.author.id
 
@@ -95,7 +97,7 @@ async def ajout(ctx, challenge):
     """
     🃏 Ajoute un défi.
 
-        usage: [:]ajout|a|add "défi"
+        usage: [;]ajout|a|add "défi"
     """
     # TODO empêcher l'ajout d'un défi si déjà enregistré avec de la recherche du sens de la phrase
     if challenges.search(where('description') == challenge):
@@ -115,7 +117,7 @@ async def retrait(ctx, challenge_id: int):
     """
     🃏 Supprime un défi.
 
-        usage: [:]retrait|r|remove "défi id"
+        usage: [;]retrait|r|remove "défi id"
     """
     if not challenges.contains(doc_id=challenge_id):
         await ctx.send("T'es fou gadjo il existe po ton défi...")
@@ -130,9 +132,10 @@ async def info(ctx):
     """
     👤 Récupérer les informations joueur.
 
-        usage: [:]info|i
+        usage: [;]info|i
     """
     # TODO afficher le défi de la personne mentionnée
+    # TODO embed info
     user_id = ctx.author.id
 
     Users = Query()
@@ -169,7 +172,7 @@ async def defis(ctx, page_num: int = 0):
     """
     🃏 Lister les défis.
 
-        usage: [:]defis|c|challenges <numero de page>
+        usage: [;]defis|c|challenges <numero de page>
     """
     # inspiré de
     # https://stackoverflow.com/questions/61787520/i-want-to-make-a-multi-page-help-command-using-discord-py
@@ -268,7 +271,7 @@ async def joueurs(ctx, page_num: int = 0):
     """
     👤 Lister les joueurs.
 
-        usage: [:]joueurs|p|players <numero de page>
+        usage: [;]joueurs|p|players <numero de page>
     """
     # inspiré de
     # https://stackoverflow.com/questions/61787520/i-want-to-make-a-multi-page-help-command-using-discord-py
@@ -369,12 +372,16 @@ async def defi(ctx):
     """
     🃏 Obtenir un défi.
 
-        usage: [:]defi|g|get
+        usage: [;]defi|g|get
     """
     user_id = ctx.author.id
 
     if users.get(where('id') == user_id)['challenge']:
-        await ctx.send("Tu as déjà un défi champion.")
+        await ctx.send(f"Tu as déjà un défi champion.\nS'il est terminé va le valider avec `{DISCORD_PREFIX}evaluation`.")
+        return False
+
+    if len(challenges) < 1:
+        await ctx.send("Il n'y aucun défi dans la liste...")
         return False
 
     # tirage du défi
@@ -402,8 +409,12 @@ async def defi(ctx):
                 challenge_end_date = end.strftime(DATE_FORMAT)
 
                 # attribution du défi
-                users.update(set('challenge', challenge_id), where('id') == user_id)
-                users.update(set('timestamp', end.timestamp()), where('id') == user_id)
+                users.update(set('challenge', challenge_id),
+                             where('id') == user_id)
+                users.update(
+                    set('timestamp_start', start.timestamp()), where('id') == user_id)
+                users.update(set('timestamp_end', end.timestamp()),
+                             where('id') == user_id)
 
                 # communication
                 await message.edit(content=f"Défi accepté. \n<@{user_id}> tu vas devoir `{challenge_description}` du {challenge_start_date} au {challenge_end_date}.\nC'est irrévocable.")
@@ -412,7 +423,8 @@ async def defi(ctx):
 
             elif str(reaction.emoji) == '👎':
                 # perte de point
-                users.update(add('score', REFUSE_POINT), where('id') == user_id)
+                users.update(add('score', REFUSE_POINT),
+                             where('id') == user_id)
 
                 # communication
                 await message.edit(content=f"Défi refusé.")
@@ -426,32 +438,70 @@ async def defi(ctx):
 @bot.command()
 async def evaluation(ctx):
     """
-    🚧 WIP
+    🃏 Terminer son défi.
 
-        usage: [:]evaluation
+        usage: [;]evaluation
     """
     user_id = ctx.author.id
+
     db_user = users.get(where('id') == user_id)
+
+    timestamp_end = datetime.fromtimestamp(db_user['timestamp_end'])
+    if datetime.now() < datetime.fromtimestamp(db_user['timestamp_end']):
+        await ctx.send(f"Non non non, ton défi prendra fin le {timestamp_end.strftime(DATE_FORMAT)}")
+        return False
+
     user_challenge_id = db_user['challenge']
     user_challenge_name = challenges.all()[user_challenge_id]
-    await ctx.send('Alors <@{user_id}> as tu réussi ton défi ?')
-    await ctx.send('Pour rappel celui-ci était **{user_challenge_name}**')
-    # get reaction or response
-    pass
 
+    message = await ctx.send(f"Alors <@{user_id}> as tu réussi ton défi ?\nPour rappel celui-ci était `{user_challenge_name}`")
+    await message.add_reaction('👍')
+    await message.add_reaction('👎')
 
-@bot.command(hidden=True)
-async def poll(ctx, *, text):
-    message = await ctx.send(text)
-    for emoji in ('👍', '👎'):
-        await message.add_reaction(emoji)
+    def check(reaction, user):
+        return user == ctx.author and str(reaction.emoji) in ['👍', '👎']
+
+    while True:
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
+
+            if str(reaction.emoji) == '👍':
+                # retrait du défi
+                users.update(set('challenge', None), where('id') == user_id)
+                users.update(set('timestamp_start', None),
+                             where('id') == user_id)
+                users.update(set('timestamp_end', None),
+                             where('id') == user_id)
+                users.update(add('score', SUCCESS_POINT),
+                             where('id') == user_id)
+
+                # communication
+                await ctx.send(content=f"Bien joué <@{user_id}>, trop fort(e).")
+                break
+
+            elif str(reaction.emoji) == '👎':
+                # retrait du défi
+                users.update(set('challenge', None), where('id') == user_id)
+                users.update(set('timestamp_start', None),
+                             where('id') == user_id)
+                users.update(set('timestamp_end', None),
+                             where('id') == user_id)
+                users.update(add('score', FAILURE_POINT),
+                             where('id') == user_id)
+
+                # communication
+                await ctx.send(content=f"Pas grave <@{user_id}>, tu feras mieux la prochaine fois ! :happy_mask_face:")
+        except CommandInvokeError:
+            break
+
 
 # TODO loop qui rappel les personnes ayant besoin de valider leur défi à ce jour
 
-# TODO évaluation des defis
-# TODO une durée aux défis ?
+# TODO une durée aux défis ? score ?
 # TODO auteur != mentionné
 # TODO listes de phrases
+# TODO factoriser / réorganiser
+# 🚧
 
 logger.info("Starting up and logging in...")
 bot.run(DISCORD_TOKEN, bot=True)
