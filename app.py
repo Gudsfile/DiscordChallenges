@@ -1,14 +1,13 @@
-from itertools import zip_longest
 from datetime import datetime, timedelta
+from itertools import zip_longest
 import json
 import logging
 import os
 from random import randint
 
-import discord
-from discord import Game, Embed, Color, Status, ChannelType
-from discord.ext import commands
+from discord import Embed
 from discord.ext.commands import Bot
+from discord.ext.commands.errors import CommandInvokeError
 from tinydb import TinyDB, Query, where
 from tinydb.operations import set
 
@@ -49,14 +48,14 @@ logger.addHandler(fileHandler)
 @bot.command(aliases=['start'])
 async def inscription(ctx):
     """
-    👤 Débuter la partie.
+    👤 Commencer à s'épanouir.
 
         usage: [:]inscription|start
     """
     user_id = ctx.author.id
 
     if users.search(where('id') == user_id):
-        await ctx.send(f'<@{user_id}> mais ? Toi déjà être inscris abruti...')
+        await ctx.send(f"<@{user_id}> mais ? Toi déjà être inscris abruti...")
         return False
 
     users.insert({
@@ -68,24 +67,24 @@ async def inscription(ctx):
         'last_challenges': list(),
         'score': 0
     })
-    await ctx.send(f'<@{user_id}> gooooooooooooooooo.')
+    await ctx.send(f"<@{user_id}> gooooooooooooooooo.")
 
 
 @bot.command(aliases=['stop'])
 async def desinscription(ctx):
     """
-    👤 Quitter la partie.
+    👤 Mettre fin à son épanouissement.
 
         usage: [:]desinscription|stop
     """
     user_id = ctx.author.id
 
     if not users.search(where('id') == user_id):
-        await ctx.send(f'<@{user_id}> mais ? Toi pas être inscris abruti...')
+        await ctx.send(f"<@{user_id}> mais ? Toi pas être inscris abruti...")
         return False
 
     users.remove(where('id') == user_id)
-    await ctx.send(f'Aller bye bye <@{user_id}>.')
+    await ctx.send(f"Aller bye bye <@{user_id}>.")
 
 
 @bot.command(aliases=['a', 'add'])
@@ -97,7 +96,7 @@ async def ajout(ctx, challenge):
     """
     # TODO empêcher l'ajout d'un défi si déjà enregistré avec de la recherche du sens de la phrase
     if challenges.search(where('description') == challenge):
-        await ctx.send('HepHepHep il y est déjà ce défi boloss.')
+        await ctx.send("HepHepHep il y est déjà ce défi boloss.")
         return False
 
     challenges.insert({
@@ -105,7 +104,7 @@ async def ajout(ctx, challenge):
         'author': ctx.author.id,
         'description': challenge
     })
-    await ctx.send('Voila mon ptit pote le défi a été ajouté !')
+    await ctx.send("Voila mon ptit pote le défi a été ajouté !")
 
 
 @bot.command(aliases=['r', 'remove'])
@@ -116,11 +115,11 @@ async def retrait(ctx, challenge_id: int):
         usage: [:]retrait|r|remove "défi id"
     """
     if not challenges.contains(doc_id=challenge_id):
-        await ctx.send('T\'es fou gadjo il existe po ton défi...')
+        await ctx.send("T'es fou gadjo il existe po ton défi...")
         return False
 
     challenges.remove(doc_ids=[challenge_id])
-    await ctx.send('Trop dur pour toi ce défi ? Le vla retiré.')
+    await ctx.send("Trop dur pour toi ce défi ? Le vla retiré.")
 
 
 @bot.command(aliases=['i'])
@@ -136,26 +135,28 @@ async def info(ctx):
     Users = Query()
     db_user = users.get(Users.id == user_id)
     dc_user = await bot.fetch_user(user_id)
+    user_name = dc_user.name
 
     if not db_user:
-        await ctx.send(f'Eh oh pourquoi <@{user_id}> ne joue pas ?')
+        await ctx.send(f"Eh oh pourquoi {user_name} ne joue pas ?")
         return False
 
-    user_name = dc_user.name
     user_challenge_id = db_user['challenge']
 
     if user_challenge_id is None:
-        await ctx.send(f'{user_name} doit dormir, prend un challenge mek.')
+        await ctx.send(f"{user_name} doit dormir... car il n'a pas de défi.")
         return False
 
     user_challenge_description = challenges.all(
     )[user_challenge_id]['description']
 
-    await ctx.send(f'{user_name} a pour challenge de **{user_challenge_description}**, bonne chance gros bg.')
+    await ctx.send(f"{user_name} a pour challenge de `{user_challenge_description}`, bonne chance ce gros bg.")
 
 
 def grouper(iterable, n, fillvalue=None):
-    "Collect data into fixed-length chunks or blocks"
+    """
+    Collect data into fixed-length chunks or blocks
+    """
     args = [iter(iterable)] * n
     return zip_longest(*args, fillvalue=fillvalue)
 
@@ -173,12 +174,12 @@ async def defis(ctx, page_num: int = 0):
     MAX_PER_PAGE = 9
 
     contents = [chunk for chunk in grouper(challenges, MAX_PER_PAGE)]
-    tot_pages = len(contents) - 1
-    cur_page = page_num - 1 if page_num - 1 <= tot_pages else 0
+    last_page = len(contents) - 1
+    cur_page = page_num - 1 if page_num > 0 and page_num - 1 <= last_page else 0
 
-    async def page_embed(challenges, cur_page, tot_pages):
+    async def page_embed(challenges, cur_page, last_page):
         count = cur_page * MAX_PER_PAGE
-        embed = discord.Embed(title="Liste des défis", color=BLURPLE)
+        embed = Embed(title='Liste des défis', color=BLURPLE)
         for challenge in challenges:
             if not challenge:
                 continue
@@ -187,25 +188,25 @@ async def defis(ctx, page_num: int = 0):
                             value=f"ID: {count}, Auteur: {dc_user.name}",
                             inline=True)
             count += 1
-        embed.set_footer(text=f"Page {cur_page+1} sur {tot_pages+1}")
+        embed.set_footer(text=f"Page {cur_page+1} sur {last_page+1}")
         return embed
 
-    page = await page_embed(contents[cur_page], cur_page, tot_pages)
+    page = await page_embed(contents[cur_page], cur_page, last_page)
     message = await ctx.send(embed=page)
     # getting the message object for editing and reacting
 
-    if tot_pages > 10:
-        await message.add_reaction("⏮")
-    if tot_pages > 5:
-        await message.add_reaction("⏪")
-    if tot_pages > 1:
-        await message.add_reaction("◀️")
-    if tot_pages > 1:
-        await message.add_reaction("▶️")
-    if tot_pages > 5:
-        await message.add_reaction("⏩")
-    if tot_pages > 10:
-        await message.add_reaction("⏭")
+    if last_page > 10:
+        await message.add_reaction('⏮')
+    if last_page > 5:
+        await message.add_reaction('⏪')
+    if last_page > 1:
+        await message.add_reaction('◀️')
+    if last_page > 1:
+        await message.add_reaction('▶️')
+    if last_page > 5:
+        await message.add_reaction('⏩')
+    if last_page > 10:
+        await message.add_reaction('⏭')
 
     def check(reaction, user):
         return user == ctx.author and str(reaction.emoji) in ["◀️", "▶️", "⏩", "⏪", "⏭", "⏮"]
@@ -213,43 +214,43 @@ async def defis(ctx, page_num: int = 0):
 
     while True:
         try:
-            reaction, user = await bot.wait_for("reaction_add", timeout=60, check=check)
+            reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
             # waiting for a reaction to be added - times out after x seconds, 60 in this
             # example
 
-            if str(reaction.emoji) == "▶️" and cur_page != tot_pages:
+            if str(reaction.emoji) == '▶️' and cur_page != last_page:
                 cur_page += 1
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "◀️" and cur_page >= 1:
+            elif str(reaction.emoji) == '◀️' and cur_page >= 1:
                 cur_page -= 1
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "⏩" and cur_page <= tot_pages - 5:
+            elif str(reaction.emoji) == '⏩' and cur_page <= last_page - 5:
                 cur_page += 5
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "⏪" and cur_page >= 5:
+            elif str(reaction.emoji) == '⏪' and cur_page >= 5:
                 cur_page -= 5
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "⏭" and cur_page <= tot_pages - 10:
+            elif str(reaction.emoji) == '⏭' and cur_page <= last_page - 10:
                 cur_page += 10
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "⏮" and cur_page >= 10:
+            elif str(reaction.emoji) == '⏮' and cur_page >= 10:
                 cur_page -= 10
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
@@ -257,7 +258,7 @@ async def defis(ctx, page_num: int = 0):
                 await message.remove_reaction(reaction, user)
                 # removes reactions if the user tries to go forward on the last page or
                 # backwards on the first page
-        except discord.ext.commands.errors.CommandInvokeError:
+        except CommandInvokeError:
             await message.delete()
             break
 
@@ -275,12 +276,12 @@ async def joueurs(ctx, page_num: int = 0):
     MAX_PER_PAGE = 9
 
     contents = [chunk for chunk in grouper(users, MAX_PER_PAGE)]
-    tot_pages = len(contents) - 1
-    cur_page = page_num - 1 if page_num - 1 <= tot_pages else 0
+    last_page = len(contents) - 1
+    cur_page = page_num - 1 if page_num > 0 and page_num - 1 <= last_page else 0
 
-    async def page_embed(players, cur_page, tot_pages):
+    async def page_embed(players, cur_page, last_page):
         count = cur_page * MAX_PER_PAGE
-        embed = discord.Embed(title="Liste des joueurs", color=BLURPLE)
+        embed = Embed(title='Liste des joueurs', color=BLURPLE)
         for player in players:
             if not player:
                 continue
@@ -289,69 +290,69 @@ async def joueurs(ctx, page_num: int = 0):
                             value=f"Challenge: {player['challenge']}, Score: {player['score']}",
                             inline=True)
             count += 1
-        embed.set_footer(text=f"Page {cur_page+1} sur {tot_pages+1}")
+        embed.set_footer(text=f"Page {cur_page+1} sur {last_page+1}")
         return embed
 
-    page = await page_embed(contents[cur_page], cur_page, tot_pages)
+    page = await page_embed(contents[cur_page], cur_page, last_page)
     message = await ctx.send(embed=page)
     # getting the message object for editing and reacting
 
-    if tot_pages > 10:
-        await message.add_reaction("⏮")
-    if tot_pages > 5:
-        await message.add_reaction("⏪")
-    if tot_pages > 1:
-        await message.add_reaction("◀️")
-    if tot_pages > 1:
-        await message.add_reaction("▶️")
-    if tot_pages > 5:
-        await message.add_reaction("⏩")
-    if tot_pages > 10:
-        await message.add_reaction("⏭")
+    if last_page > 10:
+        await message.add_reaction('⏮')
+    if last_page > 5:
+        await message.add_reaction('⏪')
+    if last_page > 1:
+        await message.add_reaction('◀️')
+    if last_page > 1:
+        await message.add_reaction('▶️')
+    if last_page > 5:
+        await message.add_reaction('⏩')
+    if last_page > 10:
+        await message.add_reaction('⏭')
 
     def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) in ["◀️", "▶️", "⏩", "⏪", "⏭", "⏮"]
+        return user == ctx.author and str(reaction.emoji) in ['◀️', '▶️', '⏩', '⏪', '⏭', '⏮']
         # This makes sure nobody except the command sender can interact with the "menu"
 
     while True:
         try:
-            reaction, user = await bot.wait_for("reaction_add", timeout=60, check=check)
+            reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
             # waiting for a reaction to be added - times out after x seconds, 60 in this
             # example
 
-            if str(reaction.emoji) == "▶️" and cur_page != tot_pages:
+            if str(reaction.emoji) == '▶️' and cur_page != last_page:
                 cur_page += 1
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "◀️" and cur_page >= 1:
+            elif str(reaction.emoji) == '◀️' and cur_page >= 1:
                 cur_page -= 1
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "⏩" and cur_page <= tot_pages - 5:
+            elif str(reaction.emoji) == '⏩' and cur_page <= last_page - 5:
                 cur_page += 5
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "⏪" and cur_page >= 5:
+            elif str(reaction.emoji) == '⏪' and cur_page >= 5:
                 cur_page -= 5
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "⏭" and cur_page <= tot_pages - 10:
+            elif str(reaction.emoji) == '⏭' and cur_page <= last_page - 10:
                 cur_page += 10
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
-            elif str(reaction.emoji) == "⏮" and cur_page >= 10:
+            elif str(reaction.emoji) == '⏮' and cur_page >= 10:
                 cur_page -= 10
-                page = await page_embed(contents[cur_page], cur_page, tot_pages)
+                page = await page_embed(contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
                 await message.remove_reaction(reaction, user)
 
@@ -359,7 +360,7 @@ async def joueurs(ctx, page_num: int = 0):
                 await message.remove_reaction(reaction, user)
                 # removes reactions if the user tries to go forward on the last page or
                 # backwards on the first page
-        except discord.ext.commands.errors.CommandInvokeError:
+        except CommandInvokeError:
             await message.delete()
             break
 
@@ -367,7 +368,7 @@ async def joueurs(ctx, page_num: int = 0):
 @bot.command(aliases=['g', 'get'])
 async def defi(ctx):
     """
-    🃏 Attribuer un défi à un joueur.
+    🃏 Obtenir un défi.
 
         usage: [:]defi|g|get
     """
@@ -375,7 +376,7 @@ async def defi(ctx):
     date_format = '%d/%m/%Y'
 
     if users.get(where('id') == user_id)['challenge']:
-        await ctx.send('Tu as déjà un défi champion.')
+        await ctx.send("Tu as déjà un défi champion.")
         return False
 
     # tirage du défi
@@ -399,7 +400,7 @@ async def defi(ctx):
     challenge_description = challenge['description']
 
     # message
-    await ctx.send(f'<@{user_id}> tu vas devoir **{challenge_description}** du {challenge_start_date} au {challenge_end_date}. C\'est irrévocable.')
+    await ctx.send(f"<@{user_id}> tu vas devoir `{challenge_description}` du {challenge_start_date} au {challenge_end_date}. C'est irrévocable.")
 
 
 @bot.command()
@@ -419,7 +420,7 @@ async def evaluation(ctx):
     pass
 
 
-@bot.command()
+@bot.command(hidden=True)
 async def poll(ctx, *, text):
     message = await ctx.send(text)
     for emoji in ('👍', '👎'):
