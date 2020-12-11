@@ -5,6 +5,7 @@ import logging
 import os
 from random import randint
 
+import discord
 from discord import Embed
 from discord.ext import tasks
 from discord.ext.commands import Bot
@@ -18,10 +19,10 @@ DISCORD_PREFIX = ';'
 DB_FILE = 'data.json'
 DB_TABLE_USERS = 'users'
 DB_TABLE_CHALLENGES = 'challenges'
-LOGGER_LEVEL = logging.INFO
+LOGGER_LEVEL = logging.DEBUG
 LOGGER_FILE = 'discord.log'
 LOGGER_FORMAT = '%(asctime)s:%(levelname)s:%(name)s: %(message)s'
-REMINDER_FREQUENCY = 1  # days
+REMINDER_FREQUENCY = 24  # hours
 CHALLENGE_DELAY = 7  # days
 BLURPLE = 0x4e5d94  # burple
 MAX_PER_PAGE = 9  # elements per page
@@ -79,7 +80,7 @@ async def inscription(ctx):
         'last_challenges': list(),
         'score': 0
     })
-    await ctx.send(f"<@{user_id}> gooooooooooooooooo.\nAjoute des défis avec `{DISCORD_PREFIX}ajout ou récupère en un avec `{DISCORD_PREFIX}defi`.\n{DISCORD_PREFIX} pour plus d'aide.")
+    await ctx.send(f"<@{user_id}> gooooooooooooooooo.\nAjoute des défis avec `{DISCORD_PREFIX}ajout` ou récupère en un avec `{DISCORD_PREFIX}defi`.\n`{DISCORD_PREFIX}help` pour plus d'aide.")
 
 
 @bot.command(aliases=['stop'])
@@ -100,13 +101,18 @@ async def desinscription(ctx):
 
 
 @bot.command(aliases=['a', 'add'])
-async def ajout(ctx, challenge):
+async def ajout(ctx, challenge=None):
     """
     🃏 Ajoute un défi.
 
         usage: [;]ajout|a|add "défi"
     """
     # TODO empêcher l'ajout d'un défi si déjà enregistré avec de la recherche du sens de la phrase
+
+    if not challenge:
+        await ctx.send("Tu me demandes d'enregistrer le vide là.")
+        return False
+
     if challenges.search(where('description') == challenge):
         await ctx.send("HepHepHep il y est déjà ce défi boloss.")
         return False
@@ -196,7 +202,7 @@ async def defis(ctx, page_num: int = 0):
                 continue
             dc_user = await bot.fetch_user(challenge['author'])
             embed.add_field(name=challenge['description'],
-                            value=f"ID: {count}, Auteur: {dc_user.name}",
+                            value=f"ID: {challenge.doc_id}, Auteur: {dc_user.name}",
                             inline=True)
             count += 1
         embed.set_footer(text=f"Page {cur_page+1} sur {last_page+1}")
@@ -206,17 +212,17 @@ async def defis(ctx, page_num: int = 0):
     message = await ctx.send(embed=page)
     # getting the message object for editing and reacting
 
-    if last_page > 10:
+    if last_page >= 10:
         await message.add_reaction('⏮')
-    if last_page > 5:
+    if last_page >= 5:
         await message.add_reaction('⏪')
-    if last_page > 1:
+    if last_page >= 1:
         await message.add_reaction('◀️')
-    if last_page > 1:
+    if last_page >= 1:
         await message.add_reaction('▶️')
-    if last_page > 5:
+    if last_page >= 5:
         await message.add_reaction('⏩')
-    if last_page > 10:
+    if last_page >= 10:
         await message.add_reaction('⏭')
 
     def check(reaction, user):
@@ -225,7 +231,7 @@ async def defis(ctx, page_num: int = 0):
 
     while True:
         try:
-            reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
+            reaction, user = await bot.wait_for('reaction_add', timeout=5, check=check)
             # waiting for a reaction to be added - times out after x seconds, 60 in this
 
             if str(reaction.emoji) == '▶️' and cur_page != last_page:
@@ -268,7 +274,8 @@ async def defis(ctx, page_num: int = 0):
                 await message.remove_reaction(reaction, user)
                 # removes reactions if the user tries to go forward on the last page or
                 # backwards on the first page
-        except CommandInvokeError:
+        except Exception as err:
+            logger.warning('Timeout maybe (defis)')
             await message.delete()
             break
 
@@ -307,17 +314,17 @@ async def joueurs(ctx, page_num: int = 0):
     message = await ctx.send(embed=page)
     # getting the message object for editing and reacting
 
-    if last_page > 10:
+    if last_page >= 10:
         await message.add_reaction('⏮')
-    if last_page > 5:
+    if last_page >= 5:
         await message.add_reaction('⏪')
-    if last_page > 1:
+    if last_page >= 1:
         await message.add_reaction('◀️')
-    if last_page > 1:
+    if last_page >= 1:
         await message.add_reaction('▶️')
-    if last_page > 5:
+    if last_page >= 5:
         await message.add_reaction('⏩')
-    if last_page > 10:
+    if last_page >= 10:
         await message.add_reaction('⏭')
 
     def check(reaction, user):
@@ -369,7 +376,8 @@ async def joueurs(ctx, page_num: int = 0):
                 await message.remove_reaction(reaction, user)
                 # removes reactions if the user tries to go forward on the last page or
                 # backwards on the first page
-        except CommandInvokeError:
+        except Exception as err:
+            logger.warning('Timeout maybe (joueurs)')
             await message.delete()
             break
 
@@ -437,31 +445,40 @@ async def defi(ctx):
                 await message.edit(content=f"Défi refusé.")
                 await message.remove_reaction(reaction, user)
                 break
-        except CommandInvokeError:
+        except Exception as err:
+            logger.warning('Timeout maybe (defi)')
             await message.delete()
             break
 
 
-@bot.command()
+@bot.command(aliases=['eval'])
 async def evaluation(ctx):
     """
     🃏 Terminer son défi.
 
-        usage: [;]evaluation
+        usage: [;]evaluation|eval
     """
     user_id = ctx.author.id
 
     db_user = users.get(where('id') == user_id)
 
+    if not db_user:
+        await ctx.send(f"<@{user_id}> tu n'as pas démaré ta marche vers l'épanouissement.\nCommence avec `{DISCORD_PREFIX}inscription.`")
+
+    if not db_user['challenge']:
+        await ctx.send(f"<@{user_id}> tu n'as pas encore de défi...")
+        return False
+
     timestamp_end = datetime.fromtimestamp(db_user['timestamp_end'])
     if datetime.now().date() < timestamp_end.date():
-        await ctx.send(f"Non non non, ton défi prendra fin le {timestamp_end.strftime(DATE_FORMAT)}")
+        await ctx.send(f"Non non non, <@{user_id}> ton défi prendra fin le {timestamp_end.strftime(DATE_FORMAT)}")
         return False
 
     user_challenge_id = db_user['challenge']
-    user_challenge_name = challenges.all()[user_challenge_id]
+    user_challenge_description = challenges.all(
+    )[user_challenge_id]['description']
 
-    message = await ctx.send(f"Alors <@{user_id}> as tu réussi ton défi ?\nPour rappel celui-ci était `{user_challenge_name}`")
+    message = await ctx.send(f"Alors <@{user_id}> as tu réussi ton défi ?\nPour rappel celui-ci était `{user_challenge_description}`.")
     await message.add_reaction('👍')
     await message.add_reaction('👎')
 
@@ -499,11 +516,12 @@ async def evaluation(ctx):
                 # communication
                 # TODO emoji happy mask face
                 await ctx.send(content=f"Pas grave <@{user_id}>, tu feras mieux la prochaine fois ! :happy_mask_face:")
-        except CommandInvokeError:
+        except Exception as err:
+            logger.warning('Timeout maybe (evaluation)')
             break
 
 
-@tasks.loop(days=REMINDER_FREQUENCY)
+@tasks.loop(hours=REMINDER_FREQUENCY)
 async def reminder():
     now = datetime.now().date()
 
@@ -521,6 +539,9 @@ async def reminder():
 # TODO auteur != mentionné
 # TODO listes de phrases
 # TODO factoriser / réorganiser
+# TODO Analyse de phrase pour éviter duplicata de défis
+# TODO Plusieurs phrases pour un même défis avec l’analyse (liste de description)
+# TODO Notation d’un défis pour prévenir de ceux trop nuls
 # 🚧
 
 reminder.start()

@@ -1,4 +1,5 @@
 venv/
+venvTEST/
 secret.properties
 discord.log
 data.json
