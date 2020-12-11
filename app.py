@@ -9,7 +9,7 @@ from discord import Embed
 from discord.ext.commands import Bot
 from discord.ext.commands.errors import CommandInvokeError
 from tinydb import TinyDB, Query, where
-from tinydb.operations import set
+from tinydb.operations import set, add
 
 # Config
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
@@ -138,19 +138,19 @@ async def info(ctx):
     user_name = dc_user.name
 
     if not db_user:
-        await ctx.send(f"Eh oh pourquoi {user_name} ne joue pas ?")
+        await ctx.send(f"Eh oh pourquoi {user_name} tu ne joue pas ?")
         return False
 
     user_challenge_id = db_user['challenge']
 
     if user_challenge_id is None:
-        await ctx.send(f"{user_name} doit dormir... car il n'a pas de défi.")
+        await ctx.send(f"{user_name} tu n'a pas de défi.")
         return False
 
     user_challenge_description = challenges.all(
     )[user_challenge_id]['description']
 
-    await ctx.send(f"{user_name} a pour challenge de `{user_challenge_description}`, bonne chance ce gros bg.")
+    await ctx.send(f"{user_name} tu as pour challenge de `{user_challenge_description}`, bonne chance gros bg.")
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -209,14 +209,13 @@ async def defis(ctx, page_num: int = 0):
         await message.add_reaction('⏭')
 
     def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) in ["◀️", "▶️", "⏩", "⏪", "⏭", "⏮"]
+        return user == ctx.author and str(reaction.emoji) in ['◀️', '▶️', '⏩', '⏪', '⏭', '⏮']
         # This makes sure nobody except the command sender can interact with the "menu"
 
     while True:
         try:
             reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
             # waiting for a reaction to be added - times out after x seconds, 60 in this
-            # example
 
             if str(reaction.emoji) == '▶️' and cur_page != last_page:
                 cur_page += 1
@@ -318,7 +317,6 @@ async def joueurs(ctx, page_num: int = 0):
         try:
             reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
             # waiting for a reaction to be added - times out after x seconds, 60 in this
-            # example
 
             if str(reaction.emoji) == '▶️' and cur_page != last_page:
                 cur_page += 1
@@ -373,7 +371,8 @@ async def defi(ctx):
         usage: [:]defi|g|get
     """
     user_id = ctx.author.id
-    date_format = '%d/%m/%Y'
+    DATE_FORMAT = '%d/%m/%Y'
+    REFUSE_POINT = -2
 
     if users.get(where('id') == user_id)['challenge']:
         await ctx.send("Tu as déjà un défi champion.")
@@ -381,26 +380,48 @@ async def defi(ctx):
 
     # tirage du défi
     challenge_id = randint(0, len(challenges) - 1)
-
-    # définition des dates
-    start = datetime.now()
-    end = start + timedelta(days=CHALLENGE_DELAY)
-    challenge_start_date = start.strftime(date_format)
-    challenge_end_date = end.strftime(date_format)
-
-    # attribution du défi
-    users.update(set('challenge', challenge_id), where('id') == user_id)
-    users.update(set('timestamp', end.timestamp()), where('id') == user_id)
-
-    # vérification
-    user = users.get(where('id') == user_id)
-
-    challenge_id = user['challenge']
     challenge = challenges.all()[challenge_id]
     challenge_description = challenge['description']
 
     # message
-    await ctx.send(f"<@{user_id}> tu vas devoir `{challenge_description}` du {challenge_start_date} au {challenge_end_date}. C'est irrévocable.")
+    message = await ctx.send(f"<@{user_id}> le defi `{challenge_description}` t'as été attribué es-tu partant(e) ? (-2 points si tu es faible)")
+    await message.add_reaction('👍')
+    await message.add_reaction('👎')
+
+    def check(reaction, user):
+        return user == ctx.author and str(reaction.emoji) in ['👍', '👎']
+
+    while True:
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
+
+            if str(reaction.emoji) == '👍':
+                # définition des dates
+                start = datetime.now()
+                end = start + timedelta(days=CHALLENGE_DELAY)
+                challenge_start_date = start.strftime(DATE_FORMAT)
+                challenge_end_date = end.strftime(DATE_FORMAT)
+
+                # attribution du défi
+                users.update(set('challenge', challenge_id), where('id') == user_id)
+                users.update(set('timestamp', end.timestamp()), where('id') == user_id)
+
+                # communication
+                await message.edit(content=f"Défi accepté. \n<@{user_id}> tu vas devoir `{challenge_description}` du {challenge_start_date} au {challenge_end_date}.\nC'est irrévocable.")
+                await message.remove_reaction(reaction, user)
+                break
+
+            elif str(reaction.emoji) == '👎':
+                # perte de point
+                users.update(add('score', REFUSE_POINT), where('id') == user_id)
+
+                # communication
+                await message.edit(content=f"Défi refusé.")
+                await message.remove_reaction(reaction, user)
+                break
+        except CommandInvokeError:
+            await message.delete()
+            break
 
 
 @bot.command()
@@ -430,8 +451,6 @@ async def poll(ctx, *, text):
 
 # TODO évaluation des defis
 # TODO une durée aux défis ?
-# TODO suppression d'un defi
-# TODO help
 # TODO auteur != mentionné
 # TODO listes de phrases
 
