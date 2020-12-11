@@ -196,7 +196,7 @@ async def info(ctx):
     user_challenge_description = challenges.all(
     )[user_challenge_id]['description']
 
-    await ctx.send(f"{user_name} tu as pour challenge de `{user_challenge_description}`, bonne chance gros bg.")
+    await ctx.send(f"<@{user_id}> tu as pour défi de `{user_challenge_description}`, bonne chance gros bg.")
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -258,7 +258,7 @@ async def defis(ctx, page_num: int = 0):
 
     while True:
         try:
-            reaction, user = await bot.wait_for('reaction_add', timeout=5, check=check)
+            reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
             # waiting for a reaction to be added - times out after x seconds, 60 in this
 
             if str(reaction.emoji) == '▶️' and cur_page != last_page:
@@ -303,7 +303,7 @@ async def defis(ctx, page_num: int = 0):
                 # backwards on the first page
         except Exception as err:
             logger.warning('Timeout maybe (defis)')
-            await message.delete()
+            # await message.delete()
             break
 
 
@@ -405,7 +405,7 @@ async def joueurs(ctx, page_num: int = 0):
                 # backwards on the first page
         except Exception as err:
             logger.warning('Timeout maybe (joueurs)')
-            await message.delete()
+            # await message.delete()
             break
 
 
