@@ -3,3 +3,4 @@ tinydb==4.3.0
 spaCy==2.3.5
 numpy==1.19.4
 nltk==3.5
+https://github.com/explosion/spacy-models/releases/download/fr_core_news_sm-2.3.0/fr_core_news_sm-2.3.0.tar.gz
