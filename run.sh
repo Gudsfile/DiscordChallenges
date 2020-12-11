@@ -10,7 +10,7 @@ echo "Installation des bibliothèques python"
 pip install -r requirements.txt
 
 echo "Mise à jour des varibles d'environnements"
-export DISCORD_TOKEN=$discord_token
+export DISCORD_TOKEN=$bot_token
 
 echo "Lancement du bot Discord"
 python $BASEDIR/app.py

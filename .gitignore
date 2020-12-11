@@ -2,3 +2,4 @@ venv/
 secret.properties
 discord.log
 data.json
+test.py
