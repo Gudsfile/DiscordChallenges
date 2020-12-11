@@ -22,6 +22,9 @@ LOGGER_FILE = 'discord.log'
 LOGGER_FORMAT = '%(asctime)s:%(levelname)s:%(name)s: %(message)s'
 CHALLENGE_DELAY = 7
 BLURPLE = 0x4e5d94
+MAX_PER_PAGE = 9
+DATE_FORMAT = '%d/%m/%Y'
+REFUSE_POINT = -2
 
 # Tiny db
 db = TinyDB(DB_FILE)
@@ -170,8 +173,6 @@ async def defis(ctx, page_num: int = 0):
     """
     # inspiré de
     # https://stackoverflow.com/questions/61787520/i-want-to-make-a-multi-page-help-command-using-discord-py
-
-    MAX_PER_PAGE = 9
 
     contents = [chunk for chunk in grouper(challenges, MAX_PER_PAGE)]
     last_page = len(contents) - 1
@@ -371,8 +372,6 @@ async def defi(ctx):
         usage: [:]defi|g|get
     """
     user_id = ctx.author.id
-    DATE_FORMAT = '%d/%m/%Y'
-    REFUSE_POINT = -2
 
     if users.get(where('id') == user_id)['challenge']:
         await ctx.send("Tu as déjà un défi champion.")
