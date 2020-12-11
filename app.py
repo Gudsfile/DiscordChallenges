@@ -6,6 +6,7 @@ import os
 from random import randint
 
 from discord import Embed
+from discord.ext import tasks
 from discord.ext.commands import Bot
 from discord.ext.commands.errors import CommandInvokeError
 from tinydb import TinyDB, Query, where
@@ -20,10 +21,11 @@ DB_TABLE_CHALLENGES = 'challenges'
 LOGGER_LEVEL = logging.INFO
 LOGGER_FILE = 'discord.log'
 LOGGER_FORMAT = '%(asctime)s:%(levelname)s:%(name)s: %(message)s'
-CHALLENGE_DELAY = 7
-BLURPLE = 0x4e5d94
-MAX_PER_PAGE = 9
-DATE_FORMAT = '%d/%m/%Y'
+REMINDER_FREQUENCY = 1  # days
+CHALLENGE_DELAY = 7  # days
+BLURPLE = 0x4e5d94  # burple
+MAX_PER_PAGE = 9  # elements per page
+DATE_FORMAT = '%d/%m/%Y'  # date format
 REFUSE_POINT = -2
 SUCCESS_POINT = 1
 FAILURE_POINT = 0
@@ -48,6 +50,11 @@ logger.addHandler(fileHandler)
 # consoleHandler = logging.StreamHandler()
 # consoleHandler.setFormatter(formatter)
 # logger.addHandler(consoleHandler)
+
+
+@bot.event
+async def on_ready():
+    pass
 
 
 @bot.command(aliases=['start'])
@@ -447,7 +454,7 @@ async def evaluation(ctx):
     db_user = users.get(where('id') == user_id)
 
     timestamp_end = datetime.fromtimestamp(db_user['timestamp_end'])
-    if datetime.now() < datetime.fromtimestamp(db_user['timestamp_end']):
+    if datetime.now().date() < timestamp_end.date():
         await ctx.send(f"Non non non, ton défi prendra fin le {timestamp_end.strftime(DATE_FORMAT)}")
         return False
 
@@ -490,10 +497,23 @@ async def evaluation(ctx):
                              where('id') == user_id)
 
                 # communication
+                # TODO emoji happy mask face
                 await ctx.send(content=f"Pas grave <@{user_id}>, tu feras mieux la prochaine fois ! :happy_mask_face:")
         except CommandInvokeError:
             break
 
+
+@tasks.loop(days=REMINDER_FREQUENCY)
+async def reminder():
+    now = datetime.now().date()
+
+    for db_user in users.all():
+        if not db_user['challenge']:
+            continue
+        timestamp_end = datetime.fromtimestamp(db_user['timestamp_end'])
+        if (timestamp_end.date() - now).days < 1:
+            dc_user = await bot.fetch_user(db_user['id'])
+            await dc_user.send("N'oublie pas ton défi :p")
 
 # TODO loop qui rappel les personnes ayant besoin de valider leur défi à ce jour
 
@@ -502,6 +522,8 @@ async def evaluation(ctx):
 # TODO listes de phrases
 # TODO factoriser / réorganiser
 # 🚧
+
+reminder.start()
 
 logger.info("Starting up and logging in...")
 bot.run(DISCORD_TOKEN, bot=True)
