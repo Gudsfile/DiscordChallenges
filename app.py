@@ -136,12 +136,17 @@ async def remove_challenge(ctx, challenge_id: int):
 
         usage: [;]remove|r|retrait <défi id>
     """
-    # TODO Ne supprimer que ses défis
-    if not db_challenges.contains(doc_id=challenge_id):
+    challenge = db_challenges.get(doc_id=challenge_id)
+
+    if not challenge:
         await ctx.send("T'es fou gadjo il existe po ton défi...")
         return False
 
-    db_challenges.remove(doc_ids=[challenge_id])
+    if not challenge['author'] == ctx.author.id:
+        await ctx.send("Ce n'est pas ton défi tu ne peux pas le supprimer.")
+        return False
+
+    db_challenges.remove(doc_ids=[challenge.doc_id])
     await ctx.send("Trop dur pour toi ce défi ? Le vla retiré.")
 
 
