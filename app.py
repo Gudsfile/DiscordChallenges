@@ -75,7 +75,7 @@ async def add_challenge(ctx, *args):
     challenge = ' '.join(args)
 
     if not isinstance(ctx.channel, discord.DMChannel):
-        await ctx.send(f"Wow <@{ctx.author.id}> fais attention ! Garde les défis secrets et ajoute les en DM bg.")
+        await ctx.send(f"Wow {ctx.author.mention} fais attention ! Garde les défis secrets et ajoute les en DM bg.")
         await ctx.author.send("Pour ajouter un défi utilise la commande `ajout <le defi en question>` dans cette conversation.")
         await ctx.message.delete()
         return False
@@ -124,30 +124,33 @@ async def info(ctx):
 
         usage: [;]info|i
     """
-    # TODO afficher le défi de la personne mentionnée
-    # TODO embed info
     user_id = ctx.author.id
+    mentions = ctx.message.mentions or [ctx.author]
 
-    Users = Query()
-    db_user = db_users.get(Users.id == user_id)
-    dc_user = await bot.fetch_user(user_id)
-    user_name = dc_user.name
+    embed = Embed(title='Info', color=ctx.author.colour)
+    for mention in mentions:
+        # db_user = db_users.get(Users.id == user_id)
+        db_user = db_users.get(where('id') == mention.id)
+        if not db_user:
+            embed.add_field(name=mention.name,
+                            value=f"Eh oh pourquoi tu ne joue pas ?",
+                            inline=False)
+            continue
 
-    if not db_user:
-        await ctx.send(f"Eh oh pourquoi {user_name} tu ne joue pas ?")
-        return False
+        user_challenge_id = db_user['challenge']
+        if user_challenge_id is None:
+            embed.add_field(name=mention.name,
+                            value=f"Aucun défi.",
+                            inline=False)
+            continue
 
-    user_challenge_id = db_user['challenge']
+        user_challenge_description = db_challenges.all()[user_challenge_id]['description']
+        embed.add_field(name=mention.name,
+                        value=f"`{user_challenge_description}`.",
+                        inline=False)
 
-    if user_challenge_id is None:
-        await ctx.send(f"{user_name} tu n'a pas de défi.")
-        return False
-
-    user_challenge_description = db_challenges.all(
-    )[user_challenge_id]['description']
-
-    await ctx.send(f"<@{user_id}> tu as pour défi de `{user_challenge_description}`, bonne chance gros bg.")
-
+    embed.set_footer(text=f"Bonne chance les gros bg.")
+    await ctx.send(embed=embed)
 
 def grouper(iterable, n, fillvalue=None):
     """
@@ -305,7 +308,6 @@ async def reminder():
 
 # TODO une durée aux défis ? score ?
 # TODO listes de phrases
-# TODO factoriser / réorganiser
 # TODO Plusieurs phrases pour un même défis avec l’analyse (liste de description)
 # TODO Notation d’un défis pour prévenir de ceux trop nuls
 # TODO bdd multi guild/channel
