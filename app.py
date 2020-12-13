@@ -87,6 +87,7 @@ async def stop_game(ctx):
 
         usage: [;]stop|desinscription
     """
+    # TODO suppression des défis
     user_id = ctx.author.id
 
     if not db_users.search(where('id') == user_id):
@@ -198,14 +199,17 @@ async def list_challenges(ctx, page_num: int = 0):
         usage: [;]challenges|lc|defis <numero de page>
     """
     # TODO bug 0 défis
-    # TODO afficher que en MP
-    # TODO afficher que ceux de l'auteur
+    # TODO bug pagination
+    # TODO afficher que ceux de l'auteur dès la recherche
     # inspiré de
     # https://stackoverflow.com/questions/61787520/i-want-to-make-a-multi-page-help-command-using-discord-py
 
     contents = [chunk for chunk in grouper(db_challenges, MAX_PER_PAGE)]
     last_page = len(contents) - 1
     cur_page = page_num - 1 if page_num > 0 and page_num - 1 <= last_page else 0
+
+    if not isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send("Je t'envoie ça en DM mi amor.")
 
     async def page_embed(challenges, cur_page, last_page):
         count = cur_page * MAX_PER_PAGE
@@ -214,7 +218,7 @@ async def list_challenges(ctx, page_num: int = 0):
             if not challenge:
                 continue
             dc_user = await bot.fetch_user(challenge['author'])
-            embed.add_field(name=challenge['description'],
+            embed.add_field(name=challenge['description'] if challenge['author'] == ctx.author.id else '-- SECRET --',
                             value=f"ID: {challenge.doc_id}, Auteur: {dc_user.name}",
                             inline=True)
             count += 1
@@ -222,7 +226,7 @@ async def list_challenges(ctx, page_num: int = 0):
         return embed
 
     page = await page_embed(contents[cur_page], cur_page, last_page)
-    message = await ctx.send(embed=page)
+    message = await ctx.author.send(embed=page)
     # getting the message object for editing and reacting
 
     if last_page >= 10:
