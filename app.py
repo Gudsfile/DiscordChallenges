@@ -214,6 +214,7 @@ async def defis(ctx, page_num: int = 0):
 
         usage: [;]defis|c|challenges <numero de page>
     """
+    # TODO bug 0 défis
     # inspiré de
     # https://stackoverflow.com/questions/61787520/i-want-to-make-a-multi-page-help-command-using-discord-py
 
@@ -569,6 +570,11 @@ async def reminder():
 # TODO Plusieurs phrases pour un même défis avec l’analyse (liste de description)
 # TODO Notation d’un défis pour prévenir de ceux trop nuls
 # TODO bdd multi guild/channel
+# TODO ajouter des défis par mp
+# TODO afficher la liste de défis uniquement de toi
+# TODO inutile de mettre les guillements du début à la fin
+# TODO dire non si déjà un défi
+# TODO liste des joueurs afficher le nom du defi
 # 🚧
 
 reminder.start()
