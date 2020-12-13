@@ -12,7 +12,6 @@ from discord.ext.commands import Bot
 from discord.ext.commands.errors import CommandInvokeError
 from tinydb import TinyDB, Query, where
 from tinydb.operations import set, add
-from app_sentences import get_simili
 
 # Config
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
@@ -116,33 +115,6 @@ async def ajout(ctx, challenge=None):
     if challenges.search(where('description') == challenge):
         await ctx.send("HepHepHep il y est déjà ce défi boloss.")
         return False
-
-    simili_challenges = get_simili(challenge, challenges.all())
-    if simili_challenges:
-        msg = "Il y a déjà des défis ressemblants es-tu sur de vouloir l'ajouter ?"
-        for simili_challenge in simili_challenges:
-            msg += f"\n- `{simili_challenge['description']}` (ID:`{simili_challenge.doc_id}`)"
-        message = await ctx.send(msg)
-
-        await message.add_reaction('👍')
-        await message.add_reaction('👎')
-
-
-        def check(reaction, user):
-            return user == ctx.author and str(reaction.emoji) in ['👍', '👎']
-
-        while True:
-            try:
-                reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
-                if str(reaction.emoji) == '👍':
-                    break
-                elif str(reaction.emoji) == '👎':
-                    await ctx.send("Ok je n'ajoute pas le défi.")
-                    return False
-            except Exception as err:
-                logger.warning('Timeout maybe (defi)')
-                await message.delete()
-                return False
 
     challenges.insert({
         'type': 'challenges',
