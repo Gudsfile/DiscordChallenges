@@ -108,8 +108,14 @@ async def ajout(ctx, challenge=None):
         usage: [;]ajout|a|add "défi"
     """
 
+    if not isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send(f"Wow <@{ctx.author.id}> fais attention ! Garde les défis secrets et ajoute les en DM bg.")
+        await ctx.author.send("Pour ajouter un défi utilise la commande `ajout <le defi en question>` dans cette conversation.")
+        await ctx.message.delete()
+        return False
+
     if not challenge:
-        await ctx.send("Tu me demandes d'enregistrer le vide là.")
+        await ctx.send("Sérieux ? Tu me demandes d'enregistrer le vide là.")
         return False
 
     if challenges.search(where('description') == challenge):
@@ -547,6 +553,7 @@ async def reminder():
 # TODO inutile de mettre les guillements du début à la fin
 # TODO dire non si déjà un défi
 # TODO liste des joueurs afficher le nom du defi
+# TODO ajouter plusieurs défis
 # 🚧
 
 reminder.start()
