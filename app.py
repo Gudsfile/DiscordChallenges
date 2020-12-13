@@ -38,14 +38,14 @@ db_challenges = db.table(DB_TABLE_CHALLENGES)
 
 # Discord bot
 bot = Bot(command_prefix=DISCORD_PREFIX,
-          description='''VERSION 1.0.0 - Bot by t0''', self_bot=False)
+          description='''VERSION 1.0.0 - Bot by t0''',
+          self_bot=False)
 
 # Logger
 logger = logging.getLogger('discord')
 logger.setLevel(LOGGER_LEVEL)
 formatter = logging.Formatter(LOGGER_FORMAT)
-fileHandler = logging.FileHandler(filename=LOGGER_FILE,
-                                  encoding='utf-8', mode='w')
+fileHandler = logging.FileHandler(filename=LOGGER_FILE, encoding='utf-8', mode='w')
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
 
@@ -413,20 +413,22 @@ async def get_challenge(ctx):
 
         usage: [;]get|g|defi
     """
-    # TODO interdire de le faire en privé
-    # TODO empêcher si déjà un défi
     user_id = ctx.author.id
+
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send(f"HHAHAHHAHAHAHHA. Non. Tu fais ça en public stp.")
+        return False
 
     if db_users.get(where('id') == user_id)['challenge']:
         await ctx.send(f"Tu as déjà un défi champion.\nS'il est terminé va le valider avec `{DISCORD_PREFIX}evaluation`.")
         return False
 
-    if len(challenges) < 1:
+    if len(db_challenges) < 1:
         await ctx.send("Il n'y aucun défi dans la liste...")
         return False
 
     # tirage du défi
-    challenge_id = randint(0, len(challenges) - 1)
+    challenge_id = randint(0, len(db_challenges) - 1)
     challenge = db_challenges.all()[challenge_id]
     challenge_description = challenge['description']
 
@@ -450,26 +452,20 @@ async def get_challenge(ctx):
                 challenge_end_date = end.strftime(DATE_FORMAT)
 
                 # attribution du défi
-                db_users.update(set('challenge', challenge_id),
-                             where('id') == user_id)
-                db_users.update(
-                    set('timestamp_start', start.timestamp()), where('id') == user_id)
-                db_users.update(set('timestamp_end', end.timestamp()),
-                             where('id') == user_id)
+                db_users.update(set('challenge', challenge_id),where('id') == user_id)
+                db_users.update(set('timestamp_start', start.timestamp()), where('id') == user_id)
+                db_users.update(set('timestamp_end', end.timestamp()), where('id') == user_id)
 
                 # communication
-                await message.edit(content=f"Défi accepté. \n<@{user_id}> tu vas devoir `{challenge_description}` du {challenge_start_date} au {challenge_end_date}.\nC'est irrévocable.")
-                await message.remove_reaction(reaction, user)
+                await ctx.send(f"Défi accepté. \n<@{user_id}> tu vas devoir `{challenge_description}` du {challenge_start_date} au {challenge_end_date}.\nC'est irrévocable.")
                 break
 
             elif str(reaction.emoji) == '👎':
                 # perte de point
-                db_users.update(add('score', REFUSE_POINT),
-                             where('id') == user_id)
+                db_users.update(add('score', REFUSE_POINT), where('id') == user_id)
 
                 # communication
-                await message.edit(content=f"Défi refusé.")
-                await message.remove_reaction(reaction, user)
+                await message.send(f"Défi refusé.")
                 break
         except Exception as err:
             logger.warning('Timeout maybe (defi)')
@@ -477,7 +473,7 @@ async def get_challenge(ctx):
             break
 
 
-@bot.command(name='validate',aliases=['v', 'valider'])
+@bot.command(name='validate', aliases=['v', 'valider'])
 async def validate_challenge(ctx):
     """
     🃏 Terminer son défi.
@@ -518,12 +514,9 @@ async def validate_challenge(ctx):
             if str(reaction.emoji) == '👍':
                 # retrait du défi
                 db_users.update(set('challenge', None), where('id') == user_id)
-                db_users.update(set('timestamp_start', None),
-                             where('id') == user_id)
-                db_users.update(set('timestamp_end', None),
-                             where('id') == user_id)
-                db_users.update(add('score', SUCCESS_POINT),
-                             where('id') == user_id)
+                db_users.update(set('timestamp_start', None), where('id') == user_id)
+                db_users.update(set('timestamp_end', None), where('id') == user_id)
+                db_users.update(add('score', SUCCESS_POINT), where('id') == user_id)
 
                 # communication
                 await ctx.send(content=f"Bien joué <@{user_id}>, trop fort(e).")
@@ -532,12 +525,9 @@ async def validate_challenge(ctx):
             elif str(reaction.emoji) == '👎':
                 # retrait du défi
                 db_users.update(set('challenge', None), where('id') == user_id)
-                db_users.update(set('timestamp_start', None),
-                             where('id') == user_id)
-                db_users.update(set('timestamp_end', None),
-                             where('id') == user_id)
-                db_users.update(add('score', FAILURE_POINT),
-                             where('id') == user_id)
+                db_users.update(set('timestamp_start', None), where('id') == user_id)
+                db_users.update(set('timestamp_end', None), where('id') == user_id)
+                db_users.update(add('score', FAILURE_POINT), where('id') == user_id)
 
                 # communication
                 # TODO emoji happy mask face
