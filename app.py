@@ -33,8 +33,8 @@ FAILURE_POINT = 0
 
 # Tiny db
 db = TinyDB(DB_FILE)
-users = db.table(DB_TABLE_USERS)
-challenges = db.table(DB_TABLE_CHALLENGES)
+db_users = db.table(DB_TABLE_USERS)
+db_challenges = db.table(DB_TABLE_CHALLENGES)
 
 # Discord bot
 bot = Bot(command_prefix=DISCORD_PREFIX,
@@ -48,30 +48,27 @@ fileHandler = logging.FileHandler(filename=LOGGER_FILE,
                                   encoding='utf-8', mode='w')
 fileHandler.setFormatter(formatter)
 logger.addHandler(fileHandler)
-# consoleHandler = logging.StreamHandler()
-# consoleHandler.setFormatter(formatter)
-# logger.addHandler(consoleHandler)
 
 
 @bot.event
 async def on_ready():
-    pass
+    logger.info("Bot ready")
 
 
-@bot.command(aliases=['start'])
-async def inscription(ctx):
+@bot.command(name='start', aliases=['inscription'])
+async def start_game(ctx):
     """
     👤 Commencer à s'épanouir.
 
-        usage: [;]inscription|start
+        usage: [;]start|inscription
     """
     user_id = ctx.author.id
 
-    if users.search(where('id') == user_id):
+    if db_users.search(where('id') == user_id):
         await ctx.send(f"<@{user_id}> mais ? Toi déjà être inscris abruti...")
         return False
 
-    users.insert({
+    db_users.insert({
         'type': 'users',
         'id': user_id,
         'challenge': None,
@@ -83,30 +80,32 @@ async def inscription(ctx):
     await ctx.send(f"<@{user_id}> gooooooooooooooooo.\nAjoute des défis avec `{DISCORD_PREFIX}ajout` ou récupère en un avec `{DISCORD_PREFIX}defi`.\n`{DISCORD_PREFIX}help` pour plus d'aide.")
 
 
-@bot.command(aliases=['stop'])
-async def desinscription(ctx):
+@bot.command(name='stop', aliases=['desinscription'])
+async def stop_game(ctx):
     """
     👤 Mettre fin à son épanouissement.
 
-        usage: [;]desinscription|stop
+        usage: [;]stop|desinscription
     """
     user_id = ctx.author.id
 
-    if not users.search(where('id') == user_id):
+    if not db_users.search(where('id') == user_id):
         await ctx.send(f"<@{user_id}> mais ? Toi pas être inscris abruti...")
         return False
 
-    users.remove(where('id') == user_id)
+    db_users.remove(where('id') == user_id)
     await ctx.send(f"Aller bye bye <@{user_id}>.")
 
 
-@bot.command(aliases=['a', 'add'])
-async def ajout(ctx, challenge=None):
+@bot.command(name='add', aliases=['a', 'ajout'])
+async def add_challenge(ctx, *args):
     """
     🃏 Ajoute un défi.
 
-        usage: [;]ajout|a|add "défi"
+        usage: [;]add|a|ajout <mon défi>
     """
+    # TODO ajouter plusieurs défis simultanément
+    challenge = ' '.join(args)
 
     if not isinstance(ctx.channel, discord.DMChannel):
         await ctx.send(f"Wow <@{ctx.author.id}> fais attention ! Garde les défis secrets et ajoute les en DM bg.")
@@ -118,11 +117,11 @@ async def ajout(ctx, challenge=None):
         await ctx.send("Sérieux ? Tu me demandes d'enregistrer le vide là.")
         return False
 
-    if challenges.search(where('description') == challenge):
+    if db_challenges.search(where('description') == challenge):
         await ctx.send("HepHepHep il y est déjà ce défi boloss.")
         return False
 
-    challenges.insert({
+    db_challenges.insert({
         'type': 'challenges',
         'author': ctx.author.id,
         'description': challenge
@@ -130,22 +129,23 @@ async def ajout(ctx, challenge=None):
     await ctx.send("Voila mon ptit pote le défi a été ajouté !")
 
 
-@bot.command(aliases=['r', 'remove'])
-async def retrait(ctx, challenge_id: int):
+@bot.command(name='remove', aliases=['r', 'retrait'])
+async def remove_challenge(ctx, challenge_id: int):
     """
     🃏 Supprime un défi.
 
-        usage: [;]retrait|r|remove "défi id"
+        usage: [;]remove|r|retrait <défi id>
     """
-    if not challenges.contains(doc_id=challenge_id):
+    # TODO Ne supprimer que ses défis
+    if not db_challenges.contains(doc_id=challenge_id):
         await ctx.send("T'es fou gadjo il existe po ton défi...")
         return False
 
-    challenges.remove(doc_ids=[challenge_id])
+    db_challenges.remove(doc_ids=[challenge_id])
     await ctx.send("Trop dur pour toi ce défi ? Le vla retiré.")
 
 
-@bot.command(aliases=['i'])
+@bot.command(name='info', aliases=['i'])
 async def info(ctx):
     """
     👤 Récupérer les informations joueur.
@@ -157,7 +157,7 @@ async def info(ctx):
     user_id = ctx.author.id
 
     Users = Query()
-    db_user = users.get(Users.id == user_id)
+    db_user = db_users.get(Users.id == user_id)
     dc_user = await bot.fetch_user(user_id)
     user_name = dc_user.name
 
@@ -171,7 +171,7 @@ async def info(ctx):
         await ctx.send(f"{user_name} tu n'a pas de défi.")
         return False
 
-    user_challenge_description = challenges.all(
+    user_challenge_description = db_challenges.all(
     )[user_challenge_id]['description']
 
     await ctx.send(f"<@{user_id}> tu as pour défi de `{user_challenge_description}`, bonne chance gros bg.")
@@ -185,18 +185,20 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-@bot.command(aliases=['c', 'challenges'])
-async def defis(ctx, page_num: int = 0):
+@bot.command(name='challenges', aliases=['lc', 'defis'])
+async def list_challenges(ctx, page_num: int = 0):
     """
     🃏 Lister les défis.
 
-        usage: [;]defis|c|challenges <numero de page>
+        usage: [;]challenges|lc|defis <numero de page>
     """
     # TODO bug 0 défis
+    # TODO afficher que en MP
+    # TODO afficher que ceux de l'auteur
     # inspiré de
     # https://stackoverflow.com/questions/61787520/i-want-to-make-a-multi-page-help-command-using-discord-py
 
-    contents = [chunk for chunk in grouper(challenges, MAX_PER_PAGE)]
+    contents = [chunk for chunk in grouper(db_challenges, MAX_PER_PAGE)]
     last_page = len(contents) - 1
     cur_page = page_num - 1 if page_num > 0 and page_num - 1 <= last_page else 0
 
@@ -286,19 +288,20 @@ async def defis(ctx, page_num: int = 0):
             break
 
 
-@bot.command(aliases=['p', 'players'])
-async def joueurs(ctx, page_num: int = 0):
+@bot.command(name='players', aliases=['lp', 'joueurs'])
+async def list_players(ctx, page_num: int = 0):
     """
     👤 Lister les joueurs.
 
-        usage: [;]joueurs|p|players <numero de page>
+        usage: [;]players|lp|joueurs <numero de page>
     """
+    # TODO Afficher le nom du defi à la place de l'id
     # inspiré de
     # https://stackoverflow.com/questions/61787520/i-want-to-make-a-multi-page-help-command-using-discord-py
 
     MAX_PER_PAGE = 9
 
-    contents = [chunk for chunk in grouper(users, MAX_PER_PAGE)]
+    contents = [chunk for chunk in grouper(db_users, MAX_PER_PAGE)]
     last_page = len(contents) - 1
     cur_page = page_num - 1 if page_num > 0 and page_num - 1 <= last_page else 0
 
@@ -388,16 +391,18 @@ async def joueurs(ctx, page_num: int = 0):
             break
 
 
-@bot.command(aliases=['g', 'get'])
-async def defi(ctx):
+@bot.command(name='get', aliases=['g', 'defi'])
+async def get_challenge(ctx):
     """
     🃏 Obtenir un défi.
 
-        usage: [;]defi|g|get
+        usage: [;]get|g|defi
     """
+    # TODO interdire de le faire en privé
+    # TODO empêcher si déjà un défi
     user_id = ctx.author.id
 
-    if users.get(where('id') == user_id)['challenge']:
+    if db_users.get(where('id') == user_id)['challenge']:
         await ctx.send(f"Tu as déjà un défi champion.\nS'il est terminé va le valider avec `{DISCORD_PREFIX}evaluation`.")
         return False
 
@@ -407,7 +412,7 @@ async def defi(ctx):
 
     # tirage du défi
     challenge_id = randint(0, len(challenges) - 1)
-    challenge = challenges.all()[challenge_id]
+    challenge = db_challenges.all()[challenge_id]
     challenge_description = challenge['description']
 
     # message
@@ -430,11 +435,11 @@ async def defi(ctx):
                 challenge_end_date = end.strftime(DATE_FORMAT)
 
                 # attribution du défi
-                users.update(set('challenge', challenge_id),
+                db_users.update(set('challenge', challenge_id),
                              where('id') == user_id)
-                users.update(
+                db_users.update(
                     set('timestamp_start', start.timestamp()), where('id') == user_id)
-                users.update(set('timestamp_end', end.timestamp()),
+                db_users.update(set('timestamp_end', end.timestamp()),
                              where('id') == user_id)
 
                 # communication
@@ -444,7 +449,7 @@ async def defi(ctx):
 
             elif str(reaction.emoji) == '👎':
                 # perte de point
-                users.update(add('score', REFUSE_POINT),
+                db_users.update(add('score', REFUSE_POINT),
                              where('id') == user_id)
 
                 # communication
@@ -457,16 +462,16 @@ async def defi(ctx):
             break
 
 
-@bot.command(aliases=['eval'])
-async def evaluation(ctx):
+@bot.command(name='validate',aliases=['v', 'valider'])
+async def validate_challenge(ctx):
     """
     🃏 Terminer son défi.
 
-        usage: [;]evaluation|eval
+        usage: [;]validate|v|valider
     """
     user_id = ctx.author.id
 
-    db_user = users.get(where('id') == user_id)
+    db_user = db_users.get(where('id') == user_id)
 
     if not db_user:
         await ctx.send(f"<@{user_id}> tu n'as pas démaré ta marche vers l'épanouissement.\nCommence avec `{DISCORD_PREFIX}inscription.`")
@@ -481,7 +486,7 @@ async def evaluation(ctx):
         return False
 
     user_challenge_id = db_user['challenge']
-    user_challenge_description = challenges.all(
+    user_challenge_description = db_challenges.all(
     )[user_challenge_id]['description']
 
     message = await ctx.send(f"Alors <@{user_id}> as tu réussi ton défi ?\nPour rappel celui-ci était `{user_challenge_description}`.")
@@ -497,12 +502,12 @@ async def evaluation(ctx):
 
             if str(reaction.emoji) == '👍':
                 # retrait du défi
-                users.update(set('challenge', None), where('id') == user_id)
-                users.update(set('timestamp_start', None),
+                db_users.update(set('challenge', None), where('id') == user_id)
+                db_users.update(set('timestamp_start', None),
                              where('id') == user_id)
-                users.update(set('timestamp_end', None),
+                db_users.update(set('timestamp_end', None),
                              where('id') == user_id)
-                users.update(add('score', SUCCESS_POINT),
+                db_users.update(add('score', SUCCESS_POINT),
                              where('id') == user_id)
 
                 # communication
@@ -511,12 +516,12 @@ async def evaluation(ctx):
 
             elif str(reaction.emoji) == '👎':
                 # retrait du défi
-                users.update(set('challenge', None), where('id') == user_id)
-                users.update(set('timestamp_start', None),
+                db_users.update(set('challenge', None), where('id') == user_id)
+                db_users.update(set('timestamp_start', None),
                              where('id') == user_id)
-                users.update(set('timestamp_end', None),
+                db_users.update(set('timestamp_end', None),
                              where('id') == user_id)
-                users.update(add('score', FAILURE_POINT),
+                db_users.update(add('score', FAILURE_POINT),
                              where('id') == user_id)
 
                 # communication
@@ -531,7 +536,7 @@ async def evaluation(ctx):
 async def reminder():
     now = datetime.now().date()
 
-    for db_user in users.all():
+    for db_user in db_users.all():
         if not db_user['challenge']:
             continue
         timestamp_end = datetime.fromtimestamp(db_user['timestamp_end'])
@@ -539,21 +544,12 @@ async def reminder():
             dc_user = await bot.fetch_user(db_user['id'])
             await dc_user.send("N'oublie pas ton défi :p")
 
-# TODO loop qui rappel les personnes ayant besoin de valider leur défi à ce jour
-
 # TODO une durée aux défis ? score ?
-# TODO auteur != mentionné
 # TODO listes de phrases
 # TODO factoriser / réorganiser
 # TODO Plusieurs phrases pour un même défis avec l’analyse (liste de description)
 # TODO Notation d’un défis pour prévenir de ceux trop nuls
 # TODO bdd multi guild/channel
-# TODO ajouter des défis par mp
-# TODO afficher la liste de défis uniquement de toi
-# TODO inutile de mettre les guillements du début à la fin
-# TODO dire non si déjà un défi
-# TODO liste des joueurs afficher le nom du defi
-# TODO ajouter plusieurs défis
 # 🚧
 
 reminder.start()
