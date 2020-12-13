@@ -304,7 +304,6 @@ async def list_players(ctx, page_num: int = 0):
 
         usage: [;]players|lp|joueurs <numero de page>
     """
-    # TODO Afficher le nom du defi à la place de l'id
     # inspiré de
     # https://stackoverflow.com/questions/61787520/i-want-to-make-a-multi-page-help-command-using-discord-py
 
@@ -321,8 +320,15 @@ async def list_players(ctx, page_num: int = 0):
             if not player:
                 continue
             dc_user = await bot.fetch_user(player['id'])
+
+            # Get challenge description
+            challenge_description = '/'
+            if player['challenge']:
+                challenge = db_challenges.get(doc_id=player['challenge'])
+                challenge_description = challenge['description'] if challenge else '/'
+
             embed.add_field(name=dc_user.name,
-                            value=f"Challenge: {player['challenge']}, Score: {player['score']}",
+                            value=f"Défi: `{challenge_description}`\nScore: `{player['score']}`",
                             inline=True)
             count += 1
         embed.set_footer(text=f"Page {cur_page+1} sur {last_page+1}")
