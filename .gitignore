@@ -1,8 +1,7 @@
-__pycache__/
-venv/
-venvTEST/
-secret.properties
-discord.log
-data.json
-test.py
 .*/
+__pycache__/
+venv*/
+*.log
+data.json*
+test*
+secret.properties

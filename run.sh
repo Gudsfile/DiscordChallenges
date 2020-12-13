@@ -12,7 +12,7 @@ pip install --upgrade pip
 echo "Installation des bibliothèques python"
 pip install -r requirements.txt
 
-echo "Mise à jour des varibles d'environnements"
+echo "Mise à jour des variables d'environnements"
 export DISCORD_TOKEN=$bot_token
 
 echo "Lancement du bot Discord"
