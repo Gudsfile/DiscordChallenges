@@ -29,7 +29,7 @@ db_challenges = db.table(DB_TABLE_CHALLENGES)
 
 # Discord bot
 bot = Bot(command_prefix=DISCORD_PREFIX,
-          description='''VERSION 1.0.0 - Bot by t0''',
+          description='''VERSION 0.1.0 - Bot by t0''',
           self_bot=False)
 
 # Logger
