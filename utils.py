@@ -1,7 +1,6 @@
 from itertools import zip_longest
 
 from config import *
-
 from discord import Embed
 
 
@@ -103,40 +102,47 @@ async def pagination(ctx, subject, timeout=60, cur_page=0):
                 cur_page += 1
                 page = await embed_process(ctx, contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
-                if reaction_remove_right: await message.remove_reaction(reaction, user)
+                if reaction_remove_right:
+                    await message.remove_reaction(reaction, user)
 
             elif str(reaction.emoji) == '◀️' and cur_page >= 1:
                 cur_page -= 1
                 page = await embed_process(ctx, contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
-                if reaction_remove_right: await message.remove_reaction(reaction, user)
+                if reaction_remove_right:
+                    await message.remove_reaction(reaction, user)
 
             elif str(reaction.emoji) == '⏩' and cur_page <= last_page - 5:
                 cur_page += 5
                 page = await embed_process(ctx, contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
-                if reaction_remove_right: await message.remove_reaction(reaction, user)
+                if reaction_remove_right:
+                    await message.remove_reaction(reaction, user)
 
             elif str(reaction.emoji) == '⏪' and cur_page >= 5:
                 cur_page -= 5
                 page = await embed_process(ctx, contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
-                if reaction_remove_right: await message.remove_reaction(reaction, user)
+                if reaction_remove_right:
+                    await message.remove_reaction(reaction, user)
 
             elif str(reaction.emoji) == '⏭' and cur_page <= last_page - 10:
                 cur_page += 10
                 page = await embed_process(ctx, contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
-                if reaction_remove_right: await message.remove_reaction(reaction, user)
+                if reaction_remove_right:
+                    await message.remove_reaction(reaction, user)
 
             elif str(reaction.emoji) == '⏮' and cur_page >= 10:
                 cur_page -= 10
                 page = await embed_process(ctx, contents[cur_page], cur_page, last_page)
                 await message.edit(embed=page)
-                if reaction_remove_right: await message.remove_reaction(reaction, user)
+                if reaction_remove_right:
+                    await message.remove_reaction(reaction, user)
 
             else:
-                if reaction_remove_right: await message.remove_reaction(reaction, user)
+                if reaction_remove_right:
+                    await message.remove_reaction(reaction, user)
         except Exception as err:
             logger.error(err)
             logger.warning('Timeout maybe (pagination)')

@@ -1,8 +1,4 @@
 from datetime import datetime, timedelta
-from itertools import zip_longest
-import json
-import logging
-import os
 from random import randint
 
 from config import *
@@ -12,8 +8,8 @@ import discord
 from discord import Embed
 from discord.ext import tasks
 from discord.ext.commands import Bot
-from tinydb import TinyDB, Query, where
-from tinydb.operations import set, add
+from tinydb import where
+from tinydb.operations import add, set
 
 
 @bot.event
@@ -71,7 +67,7 @@ async def add_challenge(ctx, *args):
 
         usage: [;]add|a|ajout <mon défi>
     """
-    # TODO ajouter plusieurs défis simultanément
+    # TODO ajouter plusieurs défis simultanément (insert_multiple)
     challenge = ' '.join(args)
 
     if not isinstance(ctx.channel, discord.DMChannel):
@@ -149,15 +145,8 @@ async def info(ctx):
                         value=f"`{user_challenge_description}`.",
                         inline=False)
 
-    embed.set_footer(text=f"Bonne chance les gros bg.")
+    embed.set_footer(text=f"Bonne chance à tous les gros bg.")
     await ctx.send(embed=embed)
-
-def grouper(iterable, n, fillvalue=None):
-    """
-    Collect data into fixed-length chunks or blocks
-    """
-    args = [iter(iterable)] * n
-    return zip_longest(*args, fillvalue=fillvalue)
 
 
 @bot.command(name='challenges', aliases=['lc', 'defis'])
@@ -209,7 +198,7 @@ async def get_challenge(ctx):
         return False
 
     # Already challenged
-    if db_users.get(where('id') == user_id)['challenge']:
+    if db_users.get(where('id') == user_id)['challenge'] is not None:
         await ctx.send(f"Tu as déjà un défi champion.\nS'il est terminé va le valider avec `{DISCORD_PREFIX}evaluation`.")
         return False
 
@@ -235,7 +224,7 @@ async def get_challenge(ctx):
         challenge_end_date = end.strftime(DATE_FORMAT)
 
         # User update
-        db_users.update(set('challenge', challenge_id),where('id') == user_id)
+        db_users.update(set('challenge', challenge_id), where('id') == user_id)
         db_users.update(set('timestamp_start', start.timestamp()), where('id') == user_id)
         db_users.update(set('timestamp_end', end.timestamp()), where('id') == user_id)
 
@@ -262,7 +251,7 @@ async def validate_challenge(ctx):
         await ctx.send(f"<@{user_id}> tu n'as pas démaré ta marche vers l'épanouissement.\nCommence avec `{DISCORD_PREFIX}inscription.`")
 
     # No challenge
-    if not db_user['challenge']:
+    if db_user['challenge'] is None:
         await ctx.send(f"<@{user_id}> tu n'as pas encore de défi...")
         return False
 
@@ -308,9 +297,10 @@ async def reminder():
 
 # TODO une durée aux défis ? score ?
 # TODO listes de phrases
-# TODO Plusieurs phrases pour un même défis avec l’analyse (liste de description)
-# TODO Notation d’un défis pour prévenir de ceux trop nuls
+# TODO plusieurs phrases pour un même défis avec l’analyse (liste de description)
+# TODO notation d’un défis pour prévenir de ceux trop nuls
 # TODO bdd multi guild/channel
+# TODO remettre l'analyse textuelle NLP
 # 🚧
 
 reminder.start()

@@ -1,7 +1,8 @@
-import os
 import logging
-from tinydb import TinyDB
+import os
+
 from discord.ext.commands import Bot
+from tinydb import TinyDB
 
 # config
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
