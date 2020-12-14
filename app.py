@@ -295,6 +295,7 @@ async def reminder():
             dc_user = await bot.fetch_user(db_user['id'])
             await dc_user.send("N'oublie pas ton défi :p")
 
+# TODO URGENT passer de TinyDB à postgress => fichier non persistant à chaque dyno
 # TODO une durée aux défis ? score ?
 # TODO listes de phrases
 # TODO plusieurs phrases pour un même défis avec l’analyse (liste de description)
