@@ -1,2 +1,2 @@
-discord.py==1.5.1
-tinydb==4.3.0
+discord-py-slash-command==3.0.1
+dinydb==4.3.0
