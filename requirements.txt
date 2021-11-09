@@ -1,2 +1,2 @@
 discord-py-interactions==3.0.2
-dinydb==4.3.0
+tinydb==4.3.0
