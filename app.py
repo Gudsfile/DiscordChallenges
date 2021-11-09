@@ -27,6 +27,19 @@ async def on_ready():
 
 # WIP BUTTONS DEV
 
+@slash.slash(name='ping')
+async def _ping(ctx: SlashContext):
+    await ctx.send(f"Pong! ({bot.latency*1000}ms)")
+
+
+@slash.context_menu(target=ContextMenuType.MESSAGE,
+                    name="commandname")
+async def menuTest(ctx: MenuContext):
+    await ctx.send(
+        content=f"Responded! The content of the message targeted: {ctx.target_message.content}",
+        hidden=True
+    )
+
 @bot.command(name='bouton')
 async def bouton(ctx):
     buttons = [
