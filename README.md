@@ -12,6 +12,7 @@ sh run.sh
 ## Sources
 
 - [discord.py](https://discordpy.readthedocs.io/)
+- [discord interactions](https://discord-py-slash-command.readthedocs.io/)
 - [TinyDB docs](https://tinydb.readthedocs.io/)
 - [Discord embed message](https://cog-creators.github.io/discord-embed-sandbox/)
 - [Discord message pagination](https://stackoverflow.com/questions/61787520/i-want-to-make-a-multi-page-help-command-using-discord-py)
