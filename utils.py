@@ -2,6 +2,9 @@ from itertools import zip_longest
 
 from config import *
 from discord import Embed
+from discord_slash.utils.manage_components import wait_for_component
+from discord_slash.context import ComponentContext
+from discord_slash.model import ButtonStyle
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -150,23 +153,20 @@ async def pagination(ctx, subject, timeout=60, cur_page=0):
             break
 
 
-async def yes_no(ctx, message):
-    await message.add_reaction('👍')
-    await message.add_reaction('👎')
-
-    def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) in ['👍', '👎']
+async def yes_no(ctx, action_row):
+    def check(button_ctx: ComponentContext):
+        return button_ctx.author == ctx.author
 
     while True:
         try:
-            reaction, user = await bot.wait_for('reaction_add', timeout=60, check=check)
+            button_ctx: ComponentContext = await wait_for_component(bot, components=action_row, timeout=60, check=check)
 
-            if str(reaction.emoji) == '👍':
-                return True
+            if button_ctx.component.get('style', -1) == ButtonStyle.green:
+                return True, button_ctx
 
-            elif str(reaction.emoji) == '👎':
-                return False
+            elif button_ctx.component.get('style', -1) == ButtonStyle.red:
+                return False, button_ctx
         except Exception as err:
-            logger.warning('Timeout maybe (evaluation)')
+            logger.warning(f'Error ({err})')
             return None
     return None

@@ -1,3 +1,5 @@
+from discord_slash.model import ContextMenuType
+from discord_slash.context import MenuContext
 from datetime import datetime, timedelta
 from random import randint
 
@@ -8,6 +10,12 @@ import discord
 from discord import Embed
 from discord.ext import tasks
 from discord.ext.commands import Bot
+from discord_slash import SlashContext
+from discord_slash.utils.manage_components import create_button, create_actionrow
+from discord_slash.model import ButtonStyle
+from discord_slash.utils.manage_components import create_select, create_select_option, create_actionrow
+from discord_slash.utils.manage_components import wait_for_component
+from discord_slash.context import ComponentContext
 from tinydb import where
 from tinydb.operations import add, set
 
@@ -16,6 +24,71 @@ from tinydb.operations import add, set
 async def on_ready():
     logger.info("Bot ready")
 
+
+# WIP SLASH DEV
+
+
+@slash.slash(name='ping')
+async def _ping(ctx: SlashContext):
+    await ctx.send(f"Pong! ({bot.latency*1000}ms)")
+
+
+@slash.context_menu(target=ContextMenuType.MESSAGE,
+                    name="commandname",
+                    guild_ids=[442687967396364289])
+async def menuTest(ctx: MenuContext):
+    await ctx.send(
+        content=f"Responded! The content of the message targeted: {ctx.target_message.content}",
+        hidden=True
+    )
+
+
+@bot.command(name='bouton')
+async def bouton(ctx):
+    buttons = [
+        create_button(style=ButtonStyle.green, label="A green button"),
+        create_button(style=ButtonStyle.red, label="A blue button")
+    ]
+    action_row = create_actionrow(*buttons)
+    await ctx.send("bouton msg", components=[action_row])
+
+    def check(button_ctx: ComponentContext):
+        return button_ctx.author == ctx.author
+
+    button_ctx: ComponentContext = await wait_for_component(bot, components=action_row, check=check)
+
+    if button_ctx.component.get('style', '-1') == ButtonStyle.green:
+        await button_ctx.edit_origin(content="You pressed the green button!", components=[])
+    elif button_ctx.component.get('style', '-1') == ButtonStyle.red:
+        await button_ctx.edit_origin(content="You pressed the red button!", components=[])
+
+
+@bot.event
+async def on_component(ctx: ComponentContext):
+    # you may want to filter or change behaviour based on custom_id or message
+    # await ctx.send(content=f"You selected {ctx.selected_options}")
+    logger.info("Nothing")
+
+
+@bot.command(name='selection')
+async def selection(ctx):
+    select = create_select(
+        options=[  # the options in your dropdown
+            create_select_option("Lab Coat", value="coat", emoji="🥼"),
+            create_select_option("Test Tube", value="tube", emoji="🧪"),
+            create_select_option("Petri Dish", value="dish", emoji="🧫"),
+        ],
+        # the placeholder text to show when no options have been chosen
+        placeholder="Choose your option",
+        min_values=1,  # the minimum number of options a user must select
+        max_values=2,  # the maximum number of options a user can select
+    )
+
+    # like action row with buttons but without * in front of the variable
+    await ctx.send("test", components=[create_actionrow(select)])
+
+
+######################
 
 @bot.command(name='start', aliases=['inscription'])
 async def start_game(ctx):
@@ -140,7 +213,8 @@ async def info(ctx):
                             inline=False)
             continue
 
-        user_challenge_description = db_challenges.all()[user_challenge_id]['description']
+        user_challenge_description = db_challenges.all()[
+            user_challenge_id]['description']
         embed.add_field(name=mention.name,
                         value=f"`{user_challenge_description}`.",
                         inline=False)
@@ -213,8 +287,16 @@ async def get_challenge(ctx):
     challenge_description = challenge['description']
 
     # Validation
-    message = await ctx.send(f"<@{user_id}> le defi `{challenge_description}` t'as été attribué es-tu partant(e) ? (-2 points si tu es faible)")
-    answer = await yes_no(ctx, message)
+    buttons = [
+        create_button(style=ButtonStyle.green, label="Oui bien sur 8)"),
+        create_button(style=ButtonStyle.red,
+                      label="Non (-2 points si je suis si faible)")
+    ]
+    message = f"<@{user_id}> le defi `{challenge_description}` t'as été attribué es-tu partant(e) ?"
+    action_row = create_actionrow(*buttons)
+    await ctx.send(message, components=[action_row])
+
+    answer, button_ctx = await yes_no(ctx, action_row)
 
     if answer:
         # Get dates
@@ -225,15 +307,18 @@ async def get_challenge(ctx):
 
         # User update
         db_users.update(set('challenge', challenge_id), where('id') == user_id)
-        db_users.update(set('timestamp_start', start.timestamp()), where('id') == user_id)
-        db_users.update(set('timestamp_end', end.timestamp()), where('id') == user_id)
+        db_users.update(set('timestamp_start', start.timestamp()),
+                        where('id') == user_id)
+        db_users.update(set('timestamp_end', end.timestamp()),
+                        where('id') == user_id)
 
         # Communication
-        await ctx.send(f"Défi accepté. \n<@{user_id}> tu vas devoir `{challenge_description}` du {challenge_start_date} au {challenge_end_date}.\nC'est irrévocable.")
+        await button_ctx.edit_origin(content=f"Défi accepté. \n<@{user_id}> tu vas devoir `{challenge_description}` du {challenge_start_date} au {challenge_end_date}.\nC'est irrévocable.", components=[])
     else:
         # Score update and Communication
-        db_users.update(add('score', POINT_FOR_REFUSAL), where('id') == user_id)
-        await ctx.send(f"Défi refusé.")
+        db_users.update(add('score', POINT_FOR_REFUSAL),
+                        where('id') == user_id)
+        await button_ctx.edit_origin(content=f"Défi refusé.", components=[])
 
 
 @bot.command(name='validate', aliases=['v', 'valider'])
@@ -262,9 +347,19 @@ async def validate_challenge(ctx):
         return False
 
     # Validation
-    user_challenge_description = db_challenges.all()[db_user['challenge']]['description']
-    message = await ctx.send(f"Alors <@{user_id}> as tu réussi ton défi ?\nPour rappel celui-ci était `{user_challenge_description}`.")
-    answer = await yes_no(ctx, message)
+    user_challenge_description = db_challenges.all(
+    )[db_user['challenge']]['description']
+
+    buttons = [
+        create_button(style=ButtonStyle.green, label="Oui bien sur 8)"),
+        create_button(style=ButtonStyle.red,
+                      label="Non mais j'ai fais de mon mieux ! La prochaine fois j'y arriverais ouiiii")
+    ]
+    message = f"Alors <@{user_id}> as tu réussi ton défi ?\nPour rappel celui-ci était `{user_challenge_description}`."
+    action_row = create_actionrow(*buttons)
+    await ctx.send(message, components=[action_row])
+
+    answer, button_ctx = await yes_no(ctx, action_row)
 
     # No answer
     if answer is None:
@@ -277,11 +372,13 @@ async def validate_challenge(ctx):
 
     # Score update and Communication
     if answer:
-        db_users.update(add('score', POINT_FOR_SUCCESS), where('id') == user_id)
-        await ctx.send(content=f"Bien joué <@{user_id}>, trop fort(e).")
+        db_users.update(add('score', POINT_FOR_SUCCESS),
+                        where('id') == user_id)
+        await button_ctx.edit_origin(content=f"Bien joué <@{user_id}>, trop fort(e).", components=[])
     else:
-        db_users.update(add('score', POINT_FOR_FAILURE), where('id') == user_id)
-        await ctx.send(content=f"Pas grave <@{user_id}>, tu feras mieux la prochaine fois ! :grimacing:")
+        db_users.update(add('score', POINT_FOR_FAILURE),
+                        where('id') == user_id)
+        await button_ctx.edit_origin(content=f"Pas grave <@{user_id}>, tu feras mieux la prochaine fois ! :grimacing:", components=[])
 
 
 @tasks.loop(hours=REMINDER_FREQUENCY)
@@ -294,15 +391,6 @@ async def reminder():
         if (timestamp_end.date() - now).days < 1:
             dc_user = await bot.fetch_user(db_user['id'])
             await dc_user.send("N'oublie pas ton défi :p")
-
-# TODO URGENT passer de TinyDB à postgress => fichier non persistant à chaque dyno
-# TODO une durée aux défis ? score ?
-# TODO listes de phrases
-# TODO plusieurs phrases pour un même défis avec l’analyse (liste de description)
-# TODO notation d’un défis pour prévenir de ceux trop nuls
-# TODO bdd multi guild/channel
-# TODO remettre l'analyse textuelle NLP
-# 🚧
 
 reminder.start()
 

@@ -1,7 +1,9 @@
 import logging
 import os
 
+import discord
 from discord.ext.commands import Bot
+from discord_slash import SlashCommand
 from tinydb import TinyDB
 
 # config
@@ -30,7 +32,8 @@ db_challenges = db.table(DB_TABLE_CHALLENGES)
 # Discord bot
 bot = Bot(command_prefix=DISCORD_PREFIX,
           description='''VERSION 0.1.0 - Bot by t0''',
-          self_bot=False)
+          self_bot=False, intents=discord.Intents.all())
+slash = SlashCommand(bot, sync_commands=True)
 
 # Logger
 logger = logging.getLogger('discord')
@@ -38,4 +41,8 @@ logger.setLevel(LOGGER_LEVEL)
 formatter = logging.Formatter(LOGGER_FORMAT)
 fileHandler = logging.FileHandler(filename=LOGGER_FILE, encoding='utf-8', mode='w')
 fileHandler.setFormatter(formatter)
+consoleHandler = logging.StreamHandler()
+consoleHandler.setFormatter(formatter)
+consoleHandler.setLevel(logging.INFO)
 logger.addHandler(fileHandler)
+logger.addHandler(consoleHandler)
