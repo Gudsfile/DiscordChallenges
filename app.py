@@ -25,23 +25,7 @@ async def on_ready():
     logger.info("Bot ready")
 
 
-# WIP SLASH DEV
-
-
-@slash.slash(name='ping')
-async def _ping(ctx: SlashContext):
-    await ctx.send(f"Pong! ({bot.latency*1000}ms)")
-
-
-@slash.context_menu(target=ContextMenuType.MESSAGE,
-                    name="commandname",
-                    guild_ids=[442687967396364289])
-async def menuTest(ctx: MenuContext):
-    await ctx.send(
-        content=f"Responded! The content of the message targeted: {ctx.target_message.content}",
-        hidden=True
-    )
-
+# WIP BUTTONS DEV
 
 @bot.command(name='bouton')
 async def bouton(ctx):
